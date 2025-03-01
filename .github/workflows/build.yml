@@ -169,7 +169,7 @@ jobs:
             - ⚽ 固件源码: [${{ inputs.repo }}](https://github.com/${{ inputs.owner }}/${{ inputs.repo }})
             - 💝 源码分支: ${{ inputs.branch }}
             - 🚀 内核版本: ${{ env.KERNEL }}
-            - 🌐 默认地址: [immortalwrt.lan](192.168.2.1)
+            - 🌐 默认地址: immortalwrt.lan (192.168.2.1)
             - 🔑 默认密码: 空密码
           files: ${{ env.FIRMWARE }}/*
 
