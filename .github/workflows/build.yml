@@ -1,0 +1,196 @@
+name: 📦 编译 (Build)
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+    inputs:
+      owner:
+        description: ImmortalWrt 仓库的主人
+        type: string
+        required: true
+        default: padavanonly
+      repo:
+        description: ImmortalWrt 仓库的名字
+        type: string
+        required: true
+        default: immortalwrt-mt798x-23.05
+      branch:
+        description: ImmortalWrt 仓库的分支
+        type: string
+        required: true
+        default: openwrt-23.05
+      ssh:
+        description: 使用 ssh 连接到编译环境
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+
+    steps:
+      - name: 查看服务器信息
+        run: |
+          echo -e "CPU型号(降序): 7763，8370C，8272CL，8171M，E5-2673\n"
+          echo "-------------------------CPU信息---------------------------"
+          echo "CPU物理数量: $(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
+          echo "CPU核心数量: $(nproc)"
+          echo -e "CPU型号信息:$(cat /proc/cpuinfo | grep -m1 name | awk -F: "{print $2}")\n"
+          echo "-------------------------内存信息---------------------------"
+          echo "已安装内存详细信息:"
+          echo -e "$(sudo lshw -short -C memory | grep GiB)\n"
+          echo "-------------------------硬盘信息---------------------------"
+          echo "硬盘数量: $(lsblk -d -o NAME | grep -v '^NAME' | wc -l)" && df -hT
+
+      - name: 优化磁盘空间
+        uses: hugoalh/disk-space-optimizer-ghaction@v0.8.1
+        with:
+          operate_sudo: "True"
+          general_include: ".+"
+          general_exclude: |-
+            ^gcc
+            ^g\+\+
+            clang
+            llvm
+          docker_include: ".+"
+          docker_prune: "True"
+          docker_clean: "True"
+          apt_prune: "True"
+          apt_clean: "True"
+          homebrew_prune: "True"
+          homebrew_clean: "True"
+          npm_prune: "True"
+          npm_clean: "True"
+          os_swap: "True"
+
+      - name: 查看硬盘信息
+        run: |
+          echo "-------------------------硬盘信息---------------------------"
+          echo "硬盘数量: $(lsblk -d -o NAME | grep -v '^NAME' | wc -l)" && df -hT
+
+      - name: 初始化
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
+            bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib \
+            g++-multilib git gnutls-dev gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev \
+            libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses-dev libpython3-dev \
+            libreadline-dev libssl-dev libtool libyaml-dev libz-dev lld llvm lrzsz mkisofs msmtp nano \
+            ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply python3-docutils \
+            python3-pyelftools qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo uglifyjs \
+            upx-ucl unzip vim wget xmlto xxd zlib1g-dev
+          sudo apt-get autoremove -y --purge
+          sudo apt-get clean
+          sudo timedatectl set-timezone "Asia/Shanghai"
+          
+      - name: 克隆当前仓库
+        uses: actions/checkout@v4
+
+      - name: 克隆 ImmortalWrt 仓库
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.owner }}/${{ inputs.repo }}
+          ref: ${{ inputs.branch }}
+          path: ImmortalWrt
+
+          
+      - name: 开启缓存
+        uses: klever1988/cachewrtbuild@main
+        with:
+          ccache: 'true'
+          mixkey: '23.05-mt7986'
+          prefix: ${{ github.workspace }}/ImmortalWrt
+
+      - name: 更新并下载 feeds
+        if: ${{ inputs.ssh == false }}
+        working-directory: ImmortalWrt
+        run: ./scripts/feeds update -a && ./scripts/feeds install -a
+
+      - name: 复制配置文件
+        if: ${{ inputs.ssh == false }}
+        run: cp -f .config feeds.conf.default diy.sh ImmortalWrt/
+
+      - name: 运行 diy.sh
+        if: ${{ inputs.ssh == false }}
+        working-directory: ImmortalWrt
+        run: chmod +x diy.sh && ./diy.sh
+
+      - name: 导入配置并下载
+        if: ${{ inputs.ssh == false }}
+        working-directory: ImmortalWrt
+        run: |
+          make defconfig
+          make download -j8 V=10 || {
+            find dl -size -1024c -exec ls -l {} \;
+            find dl -size -1024c -exec rm -f {} \;
+            make download -j8 V=10
+          }
+
+      - name: 开启 SSH 服务
+        if: ${{ inputs.ssh == true }}
+        uses: lhotari/action-upterm@v1
+        with:
+          wait-timeout-minutes: 20
+
+      - name: 编译固件
+        id: compile
+        working-directory: ImmortalWrt
+        run: |
+          echo "$(nproc) 线程编译中..."
+          make -j$(nproc) || make -j1 V=s
+          echo "status=success" >> $GITHUB_OUTPUT
+          grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
+          [ -s DEVICE_NAME ] && echo "DEVICE_NAME=$(cat DEVICE_NAME)" >> $GITHUB_ENV
+          echo "FILE_DATE=$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_ENV
+
+      - name: 整理文件
+        id: organize
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          cd ImmortalWrt/bin/targets/*/*
+          echo "KERNEL=$(find . -name '*.manifest' -exec grep -m1 ^kernel {} \; | cut -d- -f2 | tr -d ' ')" >> $GITHUB_ENV
+          rm -rf packages *.buildinfo *.json *.manifest
+          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+          echo "status=success" >> $GITHUB_OUTPUT
+
+      - name: 上传固件目录
+        uses: actions/upload-artifact@v4
+        if: steps.organize.outputs.status == 'success'
+        with:
+          name: ${{ env.DEVICE_NAME }}-${{ env.FILE_DATE }}
+          path: ${{ env.FIRMWARE }}
+
+      - name: 上传固件到发布
+        uses: softprops/action-gh-release@v2
+        if: steps.organize.outputs.status == 'success'
+        with:
+          tag_name: ImmortalWrt-${{ env.FILE_DATE }}
+          body: |
+            **ImmortalWrt Version 23.05**
+            ### 📒 固件信息
+            - 💻 平台架构: Mediatek-mt7986
+            - ⚽ 固件源码: [${{ inputs.repo }}](https://github.com/${{ inputs.owner }}/${{ inputs.repo }})
+            - 💝 源码分支: ${{ inputs.branch }}
+            - 🚀 内核版本: ${{ env.KERNEL }}
+            - 🌐 默认地址: 192.168.2.1
+            - 🔑 默认密码: 空密码
+          files: ${{ env.FIRMWARE }}/*
+
+      - name: 删除以前发布的固件
+        uses: dev-drprasad/delete-older-releases@v0.3.4
+        with:
+          keep_latest: 1
+          delete_tags: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 删除以前的工作流程
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          retain_days: 0
+          keep_minimum_runs: 1
