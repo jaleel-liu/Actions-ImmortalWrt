@@ -98,14 +98,6 @@ jobs:
           ref: ${{ inputs.branch }}
           path: ImmortalWrt
 
-          
-      - name: 开启缓存
-        uses: klever1988/cachewrtbuild@main
-        with:
-          ccache: 'true'
-          mixkey: '23.05-mediatek'
-          prefix: ${{ github.workspace }}/ImmortalWrt
-
       - name: 更新并下载 feeds
         if: ${{ inputs.ssh == false }}
         working-directory: ImmortalWrt
