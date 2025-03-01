@@ -45,7 +45,7 @@ jobs:
           echo "-------------------------硬盘信息---------------------------"
           echo "硬盘数量: $(lsblk -d -o NAME | grep -v '^NAME' | wc -l)" && df -hT
 
-      - name: 优化磁盘空间
+      - name: 优化硬盘空间
         uses: hugoalh/disk-space-optimizer-ghaction@v0.8.1
         with:
           operate_sudo: "True"
@@ -103,7 +103,7 @@ jobs:
         uses: klever1988/cachewrtbuild@main
         with:
           ccache: 'true'
-          mixkey: '23.05-mt7986'
+          mixkey: '23.05-mediatek'
           prefix: ${{ github.workspace }}/ImmortalWrt
 
       - name: 更新并下载 feeds
