@@ -133,7 +133,6 @@ jobs:
         id: compile
         working-directory: ImmortalWrt
         run: |
-          echo "$(nproc) 线程编译中..."
           make -j($(nproc)+1) || make -j$(nproc) || make -j1 V=s
           echo "status=success" >> $GITHUB_OUTPUT
           grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
