@@ -116,6 +116,7 @@ jobs:
         if: ${{ inputs.ssh == false }}
         working-directory: ImmortalWrt
         run: |
+          # make defconfig
           make download -j8 V=10 || {
             find dl -size -1024c -exec ls -l {} \;
             find dl -size -1024c -exec rm -f {} \;
