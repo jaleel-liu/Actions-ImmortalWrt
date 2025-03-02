@@ -144,14 +144,14 @@ jobs:
         run: |
           echo "$(nproc)线程加速编译中..."
           make -j$(nproc) || make -j1 V=s
-          echo "status=success" >> $GITHUB_OUTPUT
           grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
           [ -s DEVICE_NAME ] && echo "DEVICE_NAME=$(cat DEVICE_NAME)" >> $GITHUB_ENV
           echo "FILE_DATE=$(date +"%y.%m.%d")" >> $GITHUB_ENV
+          echo "status=success" >> $GITHUB_OUTPUT
 
       - name: 上传固件目录
         uses: actions/upload-artifact@v4
-        if: steps.organize.outputs.status == 'success'
+        if: steps.compile.outputs.status == 'success'
         with:
           name: ${{ env.DEVICE_NAME }}-${{ env.FILE_DATE }}
           path: ${{ env.FIRMWARE }}
