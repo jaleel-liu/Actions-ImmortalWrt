@@ -101,7 +101,7 @@ jobs:
       - name: 更新并下载 feeds
         if: ${{ inputs.ssh == false }}
         working-directory: ImmortalWrt
-        run: ./scripts/feeds update -a && ./scripts/feeds install -a
+        run: ./scripts/feeds update -a && ./scripts/feeds install -a && ./scripts/feeds install -a
 
       - name: 复制配置文件
         if: ${{ inputs.ssh == false }}
@@ -142,8 +142,8 @@ jobs:
         id: compile
         working-directory: ImmortalWrt
         run: |
-          echo "$(nproc) 线程加速编译中..."
-          make -j$(nproc) || make -j1 V=s
+          echo "多线程加速编译中..."
+          make -j32 || make -j$(nproc) || make -j1 V=s
           echo "status=success" >> $GITHUB_OUTPUT
           grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
           [ -s DEVICE_NAME ] && echo "DEVICE_NAME=$(cat DEVICE_NAME)" >> $GITHUB_ENV
