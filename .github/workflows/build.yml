@@ -144,10 +144,12 @@ jobs:
         run: |
           echo "$(nproc)线程加速编译中..."
           make -j$(nproc) || make -j1 V=s
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "FILE_DATE=$(date +"%y.%m.%d")" >> $GITHUB_ENV
           grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
           [ -s DEVICE_NAME ] && echo "DEVICE_NAME=$(cat DEVICE_NAME)" >> $GITHUB_ENV
-          echo "FILE_DATE=$(date +"%y.%m.%d")" >> $GITHUB_ENV
-          echo "status=success" >> $GITHUB_OUTPUT
+          cd ./bin/targets/*/*
+          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
 
       - name: 上传固件目录
         uses: actions/upload-artifact@v4
@@ -158,12 +160,11 @@ jobs:
 
       - name: 整理文件
         id: organize
+        working-directory: ${{ env.FIRMWARE }}
         if: steps.compile.outputs.status == 'success'
         run: |
-          cd ImmortalWrt/bin/targets/*/*
           echo "KERNEL=$(find . -name '*.manifest' -exec grep -m1 ^kernel {} \; | cut -d- -f2 | tr -d ' ')" >> $GITHUB_ENV
           rm -rf packages *.buildinfo *.json *.manifest
-          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
           echo "status=success" >> $GITHUB_OUTPUT
 
       - name: 上传固件到发布
