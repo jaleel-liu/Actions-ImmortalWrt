@@ -13,12 +13,12 @@ on:
         description: ImmortalWrt 仓库的名字
         type: string
         required: true
-        default: immortalwrt-mt798x-23.05
+        default: immortalwrt-mt798x-24.10
       branch:
         description: ImmortalWrt 仓库的分支
         type: string
         required: true
-        default: openwrt-23.05
+        default: 2410
       ssh:
         description: 使用 ssh 连接到编译环境
         type: boolean
