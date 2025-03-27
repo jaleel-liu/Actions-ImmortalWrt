@@ -5,17 +5,17 @@ on:
   workflow_dispatch:
     inputs:
       owner:
-        description: ImmortalWrt 仓库的主人
+        description: ImmortalWrt 仓库拥有者
         type: string
         required: true
         default: padavanonly
       repo:
-        description: ImmortalWrt 仓库的名字
+        description: ImmortalWrt 仓库名称
         type: string
         required: true
         default: immortalwrt-mt798x-24.10
       branch:
-        description: ImmortalWrt 仓库的分支
+        description: ImmortalWrt 仓库分支
         type: string
         required: true
         default: 2410
