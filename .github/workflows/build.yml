@@ -173,7 +173,6 @@ jobs:
         with:
           tag_name: ${{ env.FILE_DATE }}
           body: |
-            **ImmortalWrt Version 23.05**
             ### 📒 固件信息
             - 💻 平台架构: MediaTek-mt7986
             - ⚽ 固件源码: [${{ inputs.repo }}](https://github.com/${{ inputs.owner }}/${{ inputs.repo }})
