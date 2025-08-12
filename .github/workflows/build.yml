@@ -13,12 +13,12 @@ on:
         description: ImmortalWrt 仓库名称
         type: string
         required: true
-        default: immortalwrt-mt798x-24.10
+        default: immortalwrt-mt798x-6.6
       branch:
         description: ImmortalWrt 仓库分支
         type: string
         required: true
-        default: 2410
+        default: openwrt-24.10-6.6
       ssh:
         description: 使用 ssh 连接到编译环境
         type: boolean
@@ -178,7 +178,7 @@ jobs:
             - ⚽ 固件源码: [${{ inputs.repo }}](https://github.com/${{ inputs.owner }}/${{ inputs.repo }})
             - 💝 源码分支: ${{ inputs.branch }}
             - 🚀 内核版本: ${{ env.KERNEL }}
-            - 🌐 默认地址: immortalwrt.lan
+            - 🌐 默认地址: 192.168.1.1
             - 🔑 默认密码: 空密码
           files: ${{ env.FIRMWARE }}/*
 
