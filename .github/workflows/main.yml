@@ -1,0 +1,119 @@
+name: 🚀 编译 (Build)
+
+on:
+  workflow_dispatch:
+    inputs:
+      owner:
+        description: 'ImmortalWrt 仓库的拥有者'
+        type: string
+        required: true
+        default: 'padavanonly'
+      repo:
+        description: 'ImmortalWrt 仓库的名字'
+        type: string
+        required: true
+        default: 'immortalwrt-mt798x-6.6'
+      branch:
+        description: 'ImmortalWrt 仓库的分支'
+        type: string
+        required: true
+        default: 'openwrt-24.10-6.6'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检查服务器性能
+        run: |
+            echo "警告⚠"
+            echo "分配的服务器性能有限，若选择的插件过多，务必注意CPU性能！"
+            echo -e "已知CPU型号(降序): 7763，8370C，8272CL，8171M，E5-2673\n"
+            echo "--------------------------CPU信息--------------------------"
+            echo "CPU物理数量: $(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
+            echo "CPU核心数量: $(nproc)"
+            echo -e "CPU型号信息:$(cat /proc/cpuinfo | grep -m1 name | awk -F: '{print $2}')\n"
+            echo "--------------------------内存信息--------------------------"
+            echo "已安装内存详细信息:"
+            echo -e "$(sudo lshw -short -C memory | grep GiB)\n"
+            echo "--------------------------硬盘信息--------------------------"
+            echo "硬盘数量: $(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
+
+      - name: 优化磁盘空间
+        uses: hugoalh/disk-space-optimizer-ghaction@v0.8.1
+        with:
+          operate_sudo: "True"
+          general_include: ".+"
+          general_exclude: |-
+            ^GCC$
+            ^G\+\+$
+            Clang
+            LLVM
+          docker_include: ".+"
+          docker_prune: "True"
+          docker_clean: "True"
+          apt_prune: "True"
+          apt_clean: "True"
+          homebrew_prune: "True"
+          homebrew_clean: "True"
+          npm_prune: "True"
+          npm_clean: "True"
+          os_swap: "True"
+
+      - name: 安装依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 \
+          ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged \
+          help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev \
+          libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool lrzsz mkisofs \
+          msmtp ninja-build p7zip p7zip-full patch pkgconf python3 python3-pyelftools python3-setuptools qemu-utils rsync \
+          scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
+
+      - name: 克隆当前仓库
+        uses: actions/checkout@main
+
+      - name: 克隆 ImmortalWrt 仓库
+        uses: actions/checkout@main
+        with:
+          repository: '${{inputs.owner}}/${{inputs.repo}}'
+          ref: ${{inputs.branch}}
+          path: ImmortalWrt
+
+      - name: 更新并下载
+        working-directory: ImmortalWrt
+        run: ./scripts/feeds update -a && ./scripts/feeds install -a
+
+      - name: 复制配置文件
+        run: cp -f .config ImmortalWrt/
+
+      - name: 下载文件
+        working-directory: ImmortalWrt
+        run: |
+          make defconfig
+          make download -j8 V=10
+          find dl -size -1024c -exec ls -l {} \;
+          find dl -size -1024c -exec rm -f {} \;
+
+      - name: 多线程编译
+        working-directory: ImmortalWrt
+        run: |
+          echo -e "$(nproc) 线程编译中，请耐心等待..."
+          make -j$(nproc) V=s
+          echo "编译完成"
+
+      - name: 整理文件
+        working-directory: ImmortalWrt
+        run: |
+          cd ./bin/targets/*/*
+          rm -rf *uboot.fip *gpt.bin *preloader.bin *recovery.itb *kernel.bin *factory.bin *bl2.bin
+          rm -rf *.buildinfo
+          rm -rf *.json
+          rm -rf *.manifest
+          rm -rf packages
+
+      - name: 上传编译文件
+        uses: actions/upload-artifact@main
+        with:
+          name: ImmortalWrt
+          path: ImmortalWrt/bin/targets
